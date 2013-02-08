@@ -4,26 +4,30 @@ Created on Feb 7, 2013
 @author: chris
 '''
 
-from xml.dom.minidom import parse
+import xml.etree.ElementTree as xml
 
 class XmlWrapper(object):
     '''
     classdocs
     '''
-    xml = ""
+    xmldata = ""
     
 
     def __init__(self, filename):
         '''
         Constructor
         '''
-        self.xml = parse(filename)    
+        self.xmldata = xml.parse(filename)    
         
         
     def searchNode(self, section, pattern):
         i=0
-        for node in self.xml.getElementsByTagName('mediawiki'):
-           if i > 10:
-               break
-           print node.nodeName
-           i = i+1
+        root = self.xmldata.getroot()
+        
+        pages = root.findall("page")
+        for p in pages:
+            print i
+            i=i+1
+            
+            if i> 10:
+                break

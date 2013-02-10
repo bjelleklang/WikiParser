@@ -20,7 +20,8 @@ It defines classes_and_methods
 '''
 
 import sys
-import os 
+import os
+import time 
 from argparse import ArgumentParser
 from argparse import RawDescriptionHelpFormatter
 from XmlWrapper import XmlWrapper
@@ -73,6 +74,8 @@ def main(argv=None): # IGNORE:C0111
 USAGE
 ''' % (program_shortdesc, str(__date__))
 
+    starttime = time.clock()
+
     try:
         # Setup argument parser
         parser = ArgumentParser(description=program_license, formatter_class=RawDescriptionHelpFormatter)
@@ -101,7 +104,8 @@ USAGE
             wrapper.search();
             
             
-            
+        print "Time elapsed: " + str(time.clock() - starttime)
+        
         return 0
     except KeyboardInterrupt:
         ### handle keyboard interrupt ###

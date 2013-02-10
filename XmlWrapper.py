@@ -55,11 +55,10 @@ class XmlWrapper(object):
         title = element.find(ns + "}title")
         revision = element.find(ns + "}revision")
         textNode = revision.find(ns + "}text")
+        wns = element.find(ns + "}ns")
         
         
-        #if self.doStuffToArticle(textNode.text) == False:
-         #   print "Logging " + title.text + " has no refs"
-        if title.text.startswith("List") == False: 
+        if title.text.startswith("List") == False and wns.text == '0': 
             if self.doStuffToArticle(textNode.text, title.text) == False:
                 #print "Logging: " + title.text
                 DataLogger.l("/tmp/wplog.txt", "Missing: [[" + title.text + "]]")

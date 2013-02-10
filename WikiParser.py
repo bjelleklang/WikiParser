@@ -13,18 +13,18 @@ It defines classes_and_methods
         
 @copyright:  2013 organization_name. All rights reserved.
         
-@license:    license
+@license:    BSD License
 
-@contact:    user_email
+@contact:    chris@bjelleklang.org
 @deffield    updated: Updated
 '''
 
 import sys
 import os 
-import XmlWrapper
-
 from argparse import ArgumentParser
 from argparse import RawDescriptionHelpFormatter
+from XmlWrapper import XmlWrapper
+
 
 __all__ = []
 __version__ = 0.1
@@ -97,8 +97,8 @@ USAGE
         
         
         if hasError == False:
-            wrapper = XmlWrapper.XmlWrapper(args.xmlfile)
-            #wrapper.searchNode("wedflkjf", "sdfkjsdf");
+            wrapper = XmlWrapper(args.xmlfile)
+            wrapper.search();
             
             
             

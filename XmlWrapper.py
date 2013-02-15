@@ -8,6 +8,9 @@ from xml.etree.cElementTree import iterparse
 from DataLogger import DataLogger
 import string
 import re
+import pprint
+import traceback
+import pdb
 
 class XmlWrapper(object):
     '''
@@ -19,78 +22,37 @@ class XmlWrapper(object):
     xmldata = ""
     context = ""
     
-    titlechecks = []
-    
     def __init__(self, filename):
         '''
         Constructor
         '''
-        
-        # Ignorelists. Any article matching these regexes should be ignored
-        # We don't need stats on these, as they are essentially a bunch of links
-        self.titlechecks.append('^List\ ')
-        self.titlechecks.append('^Comparison\ ')
-        self.titlechecks.append('^(January|February|March|April|March|April|May|June|July|August|September|October|November|December)($|\ [0-9]{1,2}$)')
-        self.titlechecks.append('^[0-9]{1,10}($|\ \(number\)$)')
-        
-        
         self.context = iterparse( filename, events=("start", "end"))
         self.context = iter(self.context)
     
     def search(self):
-        # http://www.ibm.com/developerworks/xml/library/x-hiperfparse/
-        # Author: Liza Daly
-        
-        event, root = self.context.next()
-        
-        for event, element in self.context:
-            ns, tag = string.split(element.tag, '}', 1)
-
-            # Parse node only if it's a page
-            if event == "end" and tag == "page":
-                self.parsePage(element)
-        
-                root.clear()
-        
-        
-    def parsePage(self, element):
         '''
-            Parses a pagenode. 
-            Will do a number of things based on the title, namespace and content
-            of the page. 
+            Iterates through a loop node looking for page nodes
         '''
-        ns, tag = string.split(element.tag, '}', 1)
-        
-        # Ugly fix to include the namespace when searcin for childnode. 
-        # There just has to be a better way... 
-        title = element.find(ns + "}title")
-        revision = element.find(ns + "}revision")
-        textNode = revision.find(ns + "}text")
-        
-        
-        
-        if title.text.startswith("List") == False and wns.text == '0': 
-            if self.doStuffToArticle(textNode.text, title.text) == False:
-                #print "Logging: " + title.text
-                DataLogger.l("/tmp/wplog.txt", "Missing: [[" + title.text + "]]")
-    
-    
-    
-    def doStuffToArticle(self, aText, title):
-        '''
-            Tries to find a reftag in the aText, and returns either true or false 
-            based on the result. Also looks for #redirect in case the article is
-            a redirect (which naturally doesnt contain any references)  
-        '''
-        
         try:
-            aText = aText.strip().lower()
-            status = "";
-            if aText.find("<ref") == -1 and aText.startswith("#redirect") == False:
-                return False
-        except AttributeError:
-            DataLogger.l("/tmp/wperror.txt", "Missing: [[" + title + "]]")
-            return True
+            stats = LogStats()
+            
+            event, root = self.context.next()
+           
+             
+            for event, element in self.context:
+                ns, tag = string.split(element.tag, '}', 1)
+    
+                # Parse node only if it's a page
+                if event == "end" and tag == "page":
+                    stats.parsePage(element)
+            
+                    root.clear()
+
+
+            # Cleanup, logging stats
+            stats.log()
+        except:
+            traceback.print_exc()
             
         return True
         
@@ -100,12 +62,101 @@ class LogStats(object):
     redirects = 0
     lists = 0
     comparisons = 0
+    
     nscounts = {}
     articlestats = []
+    titlechecks = []
     
+    def __init__(self):
+       # Ignorelists. Any article matching these regexes should be ignored
+       # We don't need stats on these, as they are essentially a bunch of links
+       self.titlechecks.append('^List\ ')
+       self.titlechecks.append('^Comparison\ ')
+       self.titlechecks.append('^(January|February|March|April|March|April|May|June|July|August|September|October|November|December)($|\ [0-9]{1,2}$)')
+       self.titlechecks.append('^[0-9]{1,10}($|\ \(number\)$)') 
+            
     def parsePage(self, page):
         ''' Takes a page and does something to it. Is only called if the 
-            page isn't a redirect, list, number, month, date or similar. ''' 
+            page isn't a redirect, list, number, month, date or similar. ''
+            ''' 
+        
+        ns, tag = string.split(page.tag, '}', 1)
+        
+        # Ugly fix to include the namespace when searching for childnode. 
+        # There just has to be a better way... 
+        title = page.find(ns + "}title")
+        revision = page.find(ns + "}revision")
+        textNode = revision.find(ns + "}text")
+        
+        
+        self.incrNs(page.find(ns + "}ns").text) 
+        
+        # Log redirects, parse page if it isn't one
+        if self.isRedirect(textNode) == True:
+            self.redirects = self.redirects + 1 
+        elif self.isListLike(title.text) == True:
+            self.lists = self.lists + 1
+        else:
+            # Parsing continues
+            hasRef = self.hasRefTag(textNode.text)
+            print hasRef
+            if hasRef == False:
+                DataLogger.l("/tmp/wperror.txt", "Missing: [[" + title.text + "]]")
+          
+    def incrNs(self, ns):
+        ''' Increments the ns register, registers ns if not already done '''
+        if ns not in self.nscounts:
+            self.nscounts[ns] = 0
+            
+        self.nscounts[ns] = self.nscounts[ns] + 1
+            
+    def hasRefTag(self, aTextElem):
+        
+        try:
+            aText = aTextElem.text
+            aText = aText.strip().lower()
+            status = "";
+            if aText.find("<ref") == -1:
+                return False
+                
+        except AttributeError:
+            return True
+        
+        return True
+    
+    def isListLike(self, title):
+        '''
+            Checks the page title and compares it against the 
+            regexes in titlechecks 
+        '''
+        #matched = re.match(self.titlechecks, title)
+        combined = "(" + ")|(".join(self.titlechecks) + ")"
+        
+        if re.match(combined, title) == None:
+            return False
+        
+        return True
+    
+    def isRedirect(self, aTextElem):
+        '''
+            Checks if a page contains a redirect
+        '''
+        try:
+            aText = aTextElem.text
+            aText = aText.strip().lower()
+            status = "";
+            if aText.startswith("#redirect") == False:
+               return False
+            
+        except AttributeError:
+            return True
+        
+        return True
+    
+    def log(self):
+        DataLogger.l("/tmp/wplog.txt", "Num redirects: " + str(self.redirects))
+        DataLogger.l("/tmp/wplog.txt", "Num lists: " + str(self.lists))
+        DataLogger.l("/tmp/wplog.txt", "Num pages per ns: " + pprint.pformat(self.nscounts))
     
 class PageData(object):
     length = 0

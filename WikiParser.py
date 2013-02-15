@@ -25,6 +25,7 @@ import time
 from argparse import ArgumentParser
 from argparse import RawDescriptionHelpFormatter
 from XmlWrapper import XmlWrapper
+import traceback
 
 
 __all__ = []

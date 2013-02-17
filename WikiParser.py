@@ -83,8 +83,8 @@ USAGE
         parser.add_argument("-v", "--verbose", dest="verbose", action="count", help="set verbosity level [default: %(default)s]")
         parser.add_argument('-V', '--version', action='version', version=program_version_message)
         parser.add_argument("-f", "--file", dest="xmlfile", action="store", help="set the XML-file to parse", required=True)
-        parser.add_argument("-p", "--pattern", dest="pattern", action="store", help="set the regex you are looking for", required=True)
-        parser.add_argument("-s", "--section", dest="section", action="store", help="the section you want to look within", required=True)
+        #parser.add_argument("-p", "--pattern", dest="pattern", action="store", help="set the regex you are looking for", required=True)
+        #parser.add_argument("-s", "--section", dest="section", action="store", help="the section you want to look within", required=True)
        
         # Process arguments
         args = parser.parse_args()

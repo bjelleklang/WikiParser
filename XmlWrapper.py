@@ -11,6 +11,7 @@ import re
 import pprint
 import traceback
 import pdb
+import yaml
 
 class XmlWrapper(object):
     '''
@@ -37,8 +38,7 @@ class XmlWrapper(object):
             stats = LogStats()
             
             event, root = self.context.next()
-           
-             
+                        
             for event, element in self.context:
                 ns, tag = string.split(element.tag, '}', 1)
     
@@ -58,14 +58,23 @@ class XmlWrapper(object):
         
  
 class LogStats(object):
-    ''' Misc counters and lists for keeping track of everything '''
-    redirects = 0
-    lists = 0
-    comparisons = 0
+    ''' Misc counters and numLists for keeping track of everything '''
+    pwithref = 0
+    pworef = 0
     
     nscounts = {}
     articlestats = []
     titlechecks = []
+    
+    lengthTotal = 0
+    numLinksTotal = 0
+    numExtLinksTotal = 0
+    numImgsTotal = 0
+    numTemplatesTotal = 0
+    numRedirects = 0
+    numLists = 0
+    numComparisons = 0
+    
     
     def __init__(self):
        # Ignorelists. Any article matching these regexes should be ignored
@@ -89,19 +98,31 @@ class LogStats(object):
         textNode = revision.find(ns + "}text")
         
         
-        self.incrNs(page.find(ns + "}ns").text) 
+        validArticle = True
         
-        # Log redirects, parse page if it isn't one
+        # Log numRedirects, parse page if it isn't one
         if self.isRedirect(textNode) == True:
-            self.redirects = self.redirects + 1 
-        elif self.isListLike(title.text) == True:
-            self.lists = self.lists + 1
-        else:
-            # Parsing continues
-            hasRef = self.hasRefTag(textNode.text)
-            print hasRef
-            if hasRef == False:
-                DataLogger.l("/tmp/wperror.txt", "Missing: [[" + title.text + "]]")
+            self.numRedirects = self.numRedirects + 1 
+            validArticle = False
+        
+        if self.isListLike(title.text) == True:
+            self.numLists = self.numLists + 1
+            validArticle = False
+        
+        if validArticle == True:
+            articleNamespace = page.find(ns + "}ns").text
+            self.incrNs(articleNamespace) # Only logs valid articles 
+            
+            if articleNamespace == "0":
+                # Parsing starts if we have an actual article. Ignore WP, Files, etc
+                p = PageData(page)
+                
+                self.articlestats.append(p)
+                self.lengthTotal = self.lengthTotal + p.length
+                self.numLinksTotal = self.numLinksTotal + p.numlinks 
+                self.numExtLinksTotal = self.numExtLinksTotal + p.numextlinks 
+                self.numImgsTotal = self.numImgsTotal + p.imagecount 
+                self.numTemplatesTotal = self.numTemplatesTotal + p.numtemplates
           
     def incrNs(self, ns):
         ''' Increments the ns register, registers ns if not already done '''
@@ -110,19 +131,7 @@ class LogStats(object):
             
         self.nscounts[ns] = self.nscounts[ns] + 1
             
-    def hasRefTag(self, aTextElem):
-        
-        try:
-            aText = aTextElem.text
-            aText = aText.strip().lower()
-            status = "";
-            if aText.find("<ref") == -1:
-                return False
-                
-        except AttributeError:
-            return True
-        
-        return True
+    
     
     def isListLike(self, title):
         '''
@@ -145,6 +154,7 @@ class LogStats(object):
             aText = aTextElem.text
             aText = aText.strip().lower()
             status = "";
+            
             if aText.startswith("#redirect") == False:
                return False
             
@@ -154,13 +164,71 @@ class LogStats(object):
         return True
     
     def log(self):
-        DataLogger.l("/tmp/wplog.txt", "Num redirects: " + str(self.redirects))
-        DataLogger.l("/tmp/wplog.txt", "Num lists: " + str(self.lists))
+        DataLogger.l("/tmp/wplog.txt", "Num numRedirects: " + str(self.numRedirects))
+        DataLogger.l("/tmp/wplog.txt", "Num numLists: " + str(self.numLists))
         DataLogger.l("/tmp/wplog.txt", "Num pages per ns: " + pprint.pformat(self.nscounts))
-    
+        DataLogger.l("/tmp/wplog.txt", "Avg length: " + pprint.pformat(self.lengthTotal / len(self.articlestats)))
+        DataLogger.l("/tmp/wplog.txt", "Avg images per article: " + pprint.pformat(self.numImgsTotal / len(self.articlestats)))
+        DataLogger.l("/tmp/wplog.txt", "Avg extlinks: " + pprint.pformat(self.numExtLinksTotal / len(self.articlestats)))
+        DataLogger.l("/tmp/wplog.txt", "Avg wplinks: " + pprint.pformat(self.numLinksTotal / len(self.articlestats)))
+        DataLogger.l("/tmp/wplog.txt", "Avg templates: " + pprint.pformat(self.numTemplatesTotal / len(self.articlestats)))
+        
 class PageData(object):
     length = 0
     numlinks = 0
+    numtemplates = 0
     numextlinks = 0
     imagecount = 0
+        
+    def __init__(self, page):
+        ''' 
+            Simple constructor that looks for a ref and logs some stats about 
+            this article. We ignore revisions for now, and only work with the 
+            current rev. Later on, this should receive a number of revisions and 
+            parse each of them, only checking for refs on the current rev. 
+            
+            We also assume that no numRedirects are passed into this constructor, 
+            as the stats we are logging would be useless for those.  
+        '''
+        
+        ns, tag = string.split(page.tag, '}', 1)
+        
+        title = page.find(ns + "}title")
+        revision = page.find(ns + "}revision")
+        textNode = revision.find(ns + "}text")
+        
+        # Parses the text and logs the article if it's missing a reftag
+        t = textNode.text
+        hasRef = self.hasRefTag(t)
+        
+        self.length = len(t)
+        self.numlinks = len(re.findall('\[\[', t))
+        self.numtemplates = len(re.findall('\{\{', t))
+        
+        # Regex for extlinks should be fixed and look for any single [ 
+        # not preceded by another where alphanums follows.
+        self.numextlinks = len(re.findall('\[\ ?(http|https|www)', t))
+        self.imagecount = len(re.findall(r'\[\[(File|Image)\:', t))
+        
+        if hasRef == False:
+            DataLogger.l("/tmp/wperror.txt", "Missing: [[" + title.text + "]]")
+        
+        
+    def hasRefTag(self, aText):
+        '''
+            Receives the text of an article, lowercases everything and looks for 
+            reftags
+        '''
+        try:
+            aText = aText.strip().lower()
+            status = "";
+            if aText.find("<ref") == -1:
+                return False
+                
+        except AttributeError:
+            return True
+        
+        return True
+    
+    
     

@@ -66,14 +66,15 @@ class LogStats(object):
     articlestats = []
     titlechecks = []
     
-    lengthTotal = 0
-    numLinksTotal = 0
-    numExtLinksTotal = 0
-    numImgsTotal = 0
-    numTemplatesTotal = 0
-    numRedirects = 0
-    numLists = 0
-    numComparisons = 0
+    lengthTotal         = 0
+    numLinksTotal       = 0
+    numExtLinksTotal    = 0
+    numImgsTotal        = 0
+    numTemplatesTotal   = 0
+    numRedirects        = 0
+    numLists            = 0
+    numDabs             = 0
+    numComparisons      = 0
     
     
     def __init__(self):
@@ -107,6 +108,10 @@ class LogStats(object):
         
         if self.isListLike(title.text) == True:
             self.numLists = self.numLists + 1
+            validArticle = False
+        
+        if self.isDab(title.text) == True:
+            self.numDabs = self.numDabs + 1
             validArticle = False
         
         if validArticle == True:
@@ -145,6 +150,16 @@ class LogStats(object):
             return False
         
         return True
+        
+    def isDab(self, title):
+        '''
+            Checks the page title looking for (disambiguation) 
+        '''
+        
+        if re.match("\(disambiguation\)", title) == None:
+            return False
+        
+        return True
     
     def isRedirect(self, aTextElem):
         '''
@@ -164,8 +179,9 @@ class LogStats(object):
         return True
     
     def log(self):
-        DataLogger.l("/tmp/wplog.txt", "Num numRedirects: " + str(self.numRedirects))
-        DataLogger.l("/tmp/wplog.txt", "Num numLists: " + str(self.numLists))
+        DataLogger.l("/tmp/wplog.txt", "Num redirects: " + str(self.numRedirects))
+        DataLogger.l("/tmp/wplog.txt", "Num dabs: " + str(self.numDabs))
+        DataLogger.l("/tmp/wplog.txt", "Num lists: " + str(self.numLists))
         DataLogger.l("/tmp/wplog.txt", "Num pages per ns: " + pprint.pformat(self.nscounts))
         DataLogger.l("/tmp/wplog.txt", "Avg length: " + pprint.pformat(self.lengthTotal / len(self.articlestats)))
         DataLogger.l("/tmp/wplog.txt", "Avg images per article: " + pprint.pformat(self.numImgsTotal / len(self.articlestats)))

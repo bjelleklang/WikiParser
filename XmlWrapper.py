@@ -197,9 +197,10 @@ class PageData(object):
         revision = page.find(ns + "}revision")
         textNode = revision.find(ns + "}text")
         
-        # Parses the text and logs the article if it's missing a reftag
+        # Parses the text and logs the article if it's missing a reftag or template
         t = textNode.text
         hasRef = self.hasRefTag(t)
+        hasRefTemplate = self.hasRefTemplate(t)
         
         self.length = len(t)
         self.numlinks = len(re.findall('\[\[', t))
@@ -211,7 +212,11 @@ class PageData(object):
         self.imagecount = len(re.findall(r'\[\[(File|Image)\:', t))
         
         if hasRef == False:
-            DataLogger.l("/tmp/wperror.txt", "Missing: [[" + title.text + "]]")
+            if hasRefTemplate == False:
+                DataLogger.l("/tmp/wp_missing_ref_tpl.txt", "Missing: [[" + title.text + "]]")
+            else:
+                DataLogger.l("/tmp/wp_missing_ref.txt", "Missing: [[" + title.text + "]]")
+            
         
         
     def hasRefTag(self, aText):
@@ -221,7 +226,6 @@ class PageData(object):
         '''
         try:
             aText = aText.strip().lower()
-            status = "";
             if aText.find("<ref") == -1:
                 return False
                 
@@ -230,5 +234,19 @@ class PageData(object):
         
         return True
     
+    def hasRefTemplate(self, aText):
+        '''
+            Receives the text of an article, lowercases everything and looks for 
+            reference templates. 
+        '''
+        try:
+            aText = aText.strip().lower()
+            if aText.find("{{Unreferenced") == -1:
+                return False
+                
+        except AttributeError:
+            return True
+        
+        return True
     
     

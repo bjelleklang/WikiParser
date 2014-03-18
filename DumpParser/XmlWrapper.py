@@ -66,31 +66,10 @@ class LogStats(object):
     articlestats = []
     titlechecks = []
     
-    lengthTotal         = 0
-    numLinksTotal       = 0
-    numExtLinksTotal    = 0
-    numImgsTotal        = 0
-    numTemplatesTotal   = 0
-    numRedirects        = 0
-    numLists            = 0
-    numDabs             = 0
-    numComparisons      = 0
-    
-    
-    def __init__(self):
-       # Ignorelists. Any article matching these regexes should be ignored
-       # We don't need stats on these, as they are essentially a bunch of links
-       self.titlechecks.append('^List\ ')
-       self.titlechecks.append('^Comparison\ ')
-       self.titlechecks.append('^(January|February|March|April|March|April|May|June|July|August|September|October|November|December)($|\ [0-9]{1,2}$)')
-       self.titlechecks.append('^[0-9]{1,10}($|\ \(number\)$)') 
-            
     def parsePage(self, page):
         ''' Takes a page and does something to it. Is only called if the 
             page isn't a redirect, list, number, month, date or similar. ''
             ''' 
-        
-        ns, tag = string.split(page.tag, '}', 1)
         
         # Ugly fix to include the namespace when searching for childnode. 
         # There just has to be a better way... 
@@ -98,36 +77,10 @@ class LogStats(object):
         revision = page.find(ns + "}revision")
         textNode = revision.find(ns + "}text")
         
-        
+        print page
+
         validArticle = True
         
-        # Log numRedirects, parse page if it isn't one
-        if self.isRedirect(textNode) == True:
-            self.numRedirects = self.numRedirects + 1 
-            validArticle = False
-        
-        if self.isListLike(title.text) == True:
-            self.numLists = self.numLists + 1
-            validArticle = False
-        
-        if self.isDab(title.text) == True:
-            self.numDabs = self.numDabs + 1
-            validArticle = False
-        
-        if validArticle == True:
-            articleNamespace = page.find(ns + "}ns").text
-            self.incrNs(articleNamespace) # Only logs valid articles 
-            
-            if articleNamespace == "0":
-                # Parsing starts if we have an actual article. Ignore WP, Files, etc
-                p = PageData(page)
-                
-                self.articlestats.append(p)
-                self.lengthTotal = self.lengthTotal + p.length
-                self.numLinksTotal = self.numLinksTotal + p.numlinks 
-                self.numExtLinksTotal = self.numExtLinksTotal + p.numextlinks 
-                self.numImgsTotal = self.numImgsTotal + p.imagecount 
-                self.numTemplatesTotal = self.numTemplatesTotal + p.numtemplates
           
     def incrNs(self, ns):
         ''' Increments the ns register, registers ns if not already done '''
@@ -250,34 +203,3 @@ class PageData(object):
         
         return True
     
-    def hasRefTemplate(self, aText):
-        '''
-            Receives the text of an article, lowercases everything and looks for 
-            reference templates. 
-        '''
-        try:
-            aText = aText.strip().lower()
-            if aText.find("{{Unreferenced") == -1:
-                return False
-                
-        except AttributeError:
-            return True
-        
-        return True
-    
-    def hasRefSection(self, aText):
-        '''
-            Receives the text of an article, lowercases everything and looks for 
-            a reference section. 
-        '''
-        try:
-            aText = aText.strip().lower()
-            if aText.find("==references==") != -1 or aText.find("==sources==") != -1:
-                return True
-            else:
-                return False
-                
-        except AttributeError:
-            return True
-        
-        return True
